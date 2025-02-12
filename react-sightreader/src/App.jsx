@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import * as abcjs from "../public/js/ext/abcjs_midi_6.0.0-beta.25-min.js"; // Or reference window.ABCJS if using a <script> tag
+import abcjs from "abcjs"
 import "../public/css/App.css"; // Your custom styling, if needed
 
 export default function App() {

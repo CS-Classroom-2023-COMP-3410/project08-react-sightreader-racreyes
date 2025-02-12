@@ -1,6 +1,6 @@
 const ABC_EXT = '.abc';
 const PLS_EXT = '.pls';
-import * as Pitchfinder from 'pitchfinder'
+import Pitchfinder from 'pitchfinder';
 let detectPitch = null;
 // const detectPitch = new Pitchfinder.AMDF(); // .YIN() confuses B3 with B4?
 
@@ -222,63 +222,77 @@ function refresh_countdown() {
 }
 
 function load_playlist_file(filename) {
-    if (!filename) {
-        return;
-    }
-    fetch(`/music/${filename}`)
-        .then(response => response.json())
-        .then(data => {
-            let playlist = document.querySelector('#playlist');
-            playlist.innerHTML = '';
+    $.ajax({
+        url: 'playlist/' + filename,
+        dataType: 'json',
+        success: function (data, textStatus, jqXHR) {
+            var playlist = $('#' + playlist_display.id);
+            clear_playlist();
             playlist_files = data;
             playlist_index = 0;
-            data.forEach((file, i) => {
-                let li = document.createElement('li');
-                li.className = 'list-group-item';
-                li.dataset.playlistIndex = i;
-                li.textContent = file;
-                li.addEventListener('click', () => goto_playlist_index(i));
-                playlist.appendChild(li);
+            for (var i = 0; i < data.length; i += 1) {
+                playlist.append('<li class="list-group-item" data-playlist-index="' + i + '">' + data[i] + '</li>');
+            }
+            if (playlist_files) {
+                update_playlist();
+            }
+            $('#playlist li').click(function () {
+                var el = $(this);
+                var index = parseInt(el.data('playlist-index'));
+                // console.log('Loading index ' + index);
+                goto_playlist_index(index);
             });
-            update_playlist();
-        })
-        .catch(error => {
-            console.error('Unable to load playlist file:', error);
-        });
+        },
+        error: function (jqXHR, textStatus, errorThrown) {
+            report_status('Unable to load playlist file: ' + filename);
+            update_start_button();
+        },
+    });
 }
 
 function load_abc_file(filename) {
     if (!filename) {
         return;
     }
-    fetch(`/music/${filename}`)
-        .then(response => response.text())
-        .then(data => {
-            loaded_abc = data;
-            document.querySelector('#abc-textarea').value = data;
-            render_abc(data);
-        })
-        .catch(error => console.error('Error loading ABC file:', error));
-}
-
-function render_abc(abc_string) {
-    ABCJS.renderAbc("notation", abc_string, {
-        responsive: "resize",
-        scale: DEFAULT_SCALE,
+    loaded_filename_display.textContent = '';
+    $.ajax({
+        url: 'abc/single/' + filename,
+        dataType: 'text',
+        success: function (data, textStatus, jqXHR) {
+            original_loaded_abc = data;
+            loaded_abc_filename = filename;
+            loaded_filename_display.textContent = filename;
+            $('#abc-textarea').val(data);
+            load_abc(data);
+            $(file_select.id).removeAttr('disabled');
+            report_status('File loaded. Press start to play.');
+            update_start_button();
+            update_score_stats_display();
+        },
+        error: function (jqXHR, textStatus, errorThrown) {
+            report_status('Unable to load file.');
+            update_start_button();
+        },
     });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    const fileSelect = document.querySelector('#file');
-    if (fileSelect) {
-        fileSelect.addEventListener('change', (event) => {
-            load_abc_file(event.target.value);
-        });
-    } else {
-        console.error("Element with ID 'file' not found in the DOM.");
-    }
-});
+function load_abc_textarea() {
+    loaded_filename_display.textContent = '';
+    data = $('#abc-textarea').val();
+    original_loaded_abc = data;
+    load_abc(data);
+    $(file_select.id).removeAttr('disabled');
 
+    if(tunebook && tunebook[0].lines.length > 0) {
+        loaded_abc_filename = tunebook[0].metaText.title;
+        report_status('File loaded. Press start to play.');
+        update_score_stats_display();
+    } else {
+        report_status('Invalid ABC text. Please try again.');
+    }
+
+    update_start_button();
+}
 
 function milliseconds_per_beat(qpm) {
     return 60000 / qpm;
